@@ -86,12 +86,18 @@ async function doMining(token) {
     if (res.data.code === 0) {
       logToFile(`⛏ Mining berhasil: ${JSON.stringify(res.data)}`);
       saveLastMiningTime();
+      return true;
+    } else if (res.data.code === 401) {
+      logToFile(`⚠️ Token kadaluarsa. Perlu login ulang.`);
+      return false;
     } else {
       logToFile(`⚠️ Gagal mining: ${JSON.stringify(res.data)}`);
+      return true;
     }
   } catch (err) {
     const msg = err.response?.data || err.message;
     logToFile(`❌ Error saat mining: ${JSON.stringify(msg)}`);
+    return true;
   }
 }
 
@@ -133,8 +139,19 @@ async function autoMine() {
   }
 
   if (token) {
-    await doMining(token);
-    await getUserInfo(token);
+    const miningResult = await doMining(token);
+
+    if (miningResult === false) {
+      logToFile("🔁 Mencoba login ulang karena token tidak valid...");
+      token = await loginAndSaveToken();
+
+      if (token) {
+        await doMining(token);
+        await getUserInfo(token);
+      }
+    } else {
+      await getUserInfo(token);
+    }
   } else {
     logToFile("❌ Tidak bisa mining karena token kosong.");
   }
