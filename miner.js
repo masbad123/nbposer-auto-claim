@@ -3,17 +3,16 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 
-const email = process.env.EMAIL;
-const password = process.env.PASSWORD;
-
-const loginUrl = "https://nbposer.net/api/v1/user/login";
+const token = process.env.TOKEN;
 const miningUrl = "https://nbposer.net/api/v1/user/pos/powerLogined";
 const userInfoUrl = "https://nbposer.net/api/v1/user/userInfo";
+const authDetailsUrl = "https://nbposer.net/api/v1/user/authenticationDetails";
+const noticeUrl = "https://nbposer.net/api/v1/noticeCenter/titleList";
+const assetListUrl = "https://nbposer.net/api/v1/asset/list?page=1&size=10&type=bill";
+const nodeInfoUrl = "https://infragrid.v.network/wallet/getnodeinfo";
 
-const tokenFile = path.join(__dirname, "token.txt");
 const logFile = path.join(__dirname, "log.txt");
 const lastMiningFile = path.join(__dirname, "last_mining.json");
-
 const interval = 30 * 60 * 1000; // 30 menit
 
 function logToFile(message) {
@@ -21,18 +20,6 @@ function logToFile(message) {
   const fullMessage = `[${time}] ${message}\n`;
   fs.appendFileSync(logFile, fullMessage);
   console.log(fullMessage);
-}
-
-function saveToken(token) {
-  fs.writeFileSync(tokenFile, token, "utf-8");
-  logToFile("💾 Token baru disimpan.");
-}
-
-function loadToken() {
-  if (fs.existsSync(tokenFile)) {
-    return fs.readFileSync(tokenFile, "utf-8").trim();
-  }
-  return null;
 }
 
 function saveLastMiningTime() {
@@ -50,84 +37,49 @@ function loadLastMiningTime() {
   return null;
 }
 
-async function loginAndSaveToken() {
-  try {
-    const res = await axios.post(loginUrl, {
-      username: email,
-      password: password,
-    });
-
-    const token = res.data?.data?.token || res.data?.token;
-
-    if (!token) throw new Error("Token tidak ditemukan saat login.");
-
-    logToFile("✅ Login berhasil.");
-    saveToken(token);
-    return token;
-  } catch (err) {
-    const msg = err.response?.data || err.message;
-    logToFile(`❌ Login gagal: ${JSON.stringify(msg)}`);
-    return null;
-  }
+function getHeaders() {
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json;charset=UTF-8",
+    Accept: "application/json, text/plain, */*",
+    "User-Agent": "Mozilla/5.0",
+    Referer: "https://nbposer.net/",
+  };
 }
 
-async function doMining(token) {
+async function doMining() {
   try {
     const res = await axios.get(miningUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json;charset=UTF-8",
-        Accept: "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0",
-        Referer: "https://nbposer.net/",
-      },
+      headers: getHeaders(),
     });
 
     if (res.data.code === 0) {
       logToFile(`⛏ Mining berhasil: ${JSON.stringify(res.data)}`);
       saveLastMiningTime();
-      return true;
-    } else if (res.data.code === 401) {
-      logToFile(`⚠️ Token kadaluarsa. Perlu login ulang.`);
-      return false;
     } else {
       logToFile(`⚠️ Gagal mining: ${JSON.stringify(res.data)}`);
-      return true;
     }
   } catch (err) {
     const msg = err.response?.data || err.message;
     logToFile(`❌ Error saat mining: ${JSON.stringify(msg)}`);
-    return true;
   }
 }
 
-async function getUserInfo(token) {
+async function fetchInfo(name, url) {
   try {
-    const res = await axios.get(userInfoUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json;charset=UTF-8",
-        Accept: "application/json, text/plain, */*",
-        "User-Agent": "Mozilla/5.0",
-        Referer: "https://nbposer.net/",
-      },
+    const res = await axios.get(url, {
+      headers: getHeaders(),
     });
 
-    if (res.data.code === 0 && res.data.data) {
-      logToFile(`👤 Info Pengguna: ${JSON.stringify(res.data.data, null, 2)}`);
-    } else {
-      logToFile(`⚠️ Gagal mengambil user info: ${JSON.stringify(res.data)}`);
-    }
+    logToFile(`📦 ${name}: ${JSON.stringify(res.data, null, 2)}`);
   } catch (err) {
     const msg = err.response?.data || err.message;
-    logToFile(`❌ Error saat get user info: ${JSON.stringify(msg)}`);
+    logToFile(`❌ Error saat ambil ${name}: ${JSON.stringify(msg)}`);
   }
 }
 
 async function autoMine() {
-  let token = loadToken();
   const lastMining = loadLastMiningTime();
-
   if (lastMining) {
     logToFile(`ℹ️ Waktu mining terakhir: ${lastMining}`);
   } else {
@@ -135,26 +87,16 @@ async function autoMine() {
   }
 
   if (!token) {
-    token = await loginAndSaveToken();
+    logToFile("❌ Token tidak ditemukan di file .env.");
+    return;
   }
 
-  if (token) {
-    const miningResult = await doMining(token);
-
-    if (miningResult === false) {
-      logToFile("🔁 Mencoba login ulang karena token tidak valid...");
-      token = await loginAndSaveToken();
-
-      if (token) {
-        await doMining(token);
-        await getUserInfo(token);
-      }
-    } else {
-      await getUserInfo(token);
-    }
-  } else {
-    logToFile("❌ Tidak bisa mining karena token kosong.");
-  }
+  await doMining();
+  await fetchInfo("User Info", userInfoUrl);
+  await fetchInfo("Auth Detail", authDetailsUrl);
+  await fetchInfo("Notice List", noticeUrl);
+  await fetchInfo("Asset List", assetListUrl);
+  await fetchInfo("Node Info", nodeInfoUrl);
 }
 
 // Jalankan pertama kali dan ulangi setiap 30 menit
