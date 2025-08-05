@@ -1,71 +1,45 @@
 require('dotenv').config();
-const axios = require('axios');
 const fs = require('fs');
+const axios = require('axios');
 
-const MINING_INTERVAL = 30 * 60 * 1000; // 30 menit
+const TOKEN = process.env.TOKEN;
 const LAST_MINING_FILE = 'last_mining.json';
-const LOG_FILE = 'log.txt';
 
-const token = process.env.TOKEN;
-
-function log(message) {
-  const timestamp = new Date().toISOString();
-  const fullMsg = `[${timestamp}] ${message}\n`;
-  fs.appendFileSync(LOG_FILE, fullMsg);
-  console.log(fullMsg.trim());
-}
-
-function loadLastMiningTime() {
+async function getMiningStatus() {
   try {
-    const data = fs.readFileSync(LAST_MINING_FILE);
-    return JSON.parse(data).lastMiningTime;
-  } catch {
-    return null;
-  }
-}
-
-function saveLastMiningTime(time) {
-  fs.writeFileSync(LAST_MINING_FILE, JSON.stringify({ lastMiningTime: time }, null, 2));
-}
-
-async function doMining(token) {
-  try {
-    const response = await axios.get('https://nbposer.net/api/v1/user/pos/powerLogined', {
+    const res = await axios.get('https://nbposer.net/api/v1/user/pos/powerLogined', {
       headers: {
-        token: token,
-        'Content-Type': 'application/json;charset=UTF-8',
-        'User-Agent': 'Mozilla/5.0',
-      },
+        'token': TOKEN,
+        'accept': 'application/json',
+        'content-type': 'application/json;charset=UTF-8',
+      }
     });
 
-    if (response.data.code === 0) {
-      log(`✅ Mining berhasil: ${JSON.stringify(response.data.data)}`);
+    const data = res.data;
+    if (data.code === 200 && data.data) {
+      const { powerStartupTime, powerEndTime, batchObtainAmount } = data.data;
+      console.log(`[${new Date().toISOString()}] ✅ Mining aktif`);
+      console.log(`  ⏱️  Mulai  : ${powerStartupTime}`);
+      console.log(`  ⏳ Selesai: ${powerEndTime}`);
+      console.log(`  💎 Reward : ${batchObtainAmount} HKT`);
+
+      // Simpan waktu terakhir mining
+      fs.writeFileSync(LAST_MINING_FILE, JSON.stringify({ last: powerStartupTime }, null, 2));
     } else {
-      log(`⚠️ Gagal mining: ${JSON.stringify(response.data)}`);
+      console.error(`[${new Date().toISOString()}] ⚠️ Gagal mining: ${JSON.stringify(data)}`);
     }
-  } catch (error) {
-    log(`❌ Error saat mining: ${error.message}`);
+
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] ❌ Error: ${err.message}`);
   }
 }
 
-async function main() {
-  if (!token) {
-    log('❌ Token kosong. Mohon isi file .env dengan TOKEN=xxx');
-    return;
+async function start() {
+  while (true) {
+    await getMiningStatus();
+    console.log('⏳ Menunggu 30 menit...\n');
+    await new Promise(r => setTimeout(r, 30 * 60 * 1000));
   }
-
-  const lastMining = loadLastMiningTime();
-  if (lastMining) log(`ℹ️ Waktu mining terakhir: ${lastMining}`);
-
-  await doMining(token);
-
-  const now = new Date().toISOString();
-  saveLastMiningTime(now);
-
-  setInterval(async () => {
-    await doMining(token);
-    saveLastMiningTime(new Date().toISOString());
-  }, MINING_INTERVAL);
 }
 
-main();
+start();

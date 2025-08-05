@@ -554,3 +554,4 @@
   "solidityBlock": "Num:35875570,ID:0000000002236af24bff7b29ff94cd4b3650109f5a336cf40c2bee5fb63dfc69",
   "totalFlow": 1824
 }
+[2025-08-05T02:25:20.381Z] ⚠️ Gagal mining: {"code":200,"data":{"settledHkt":0,"effectivePower":1,"powerBatchPower":1,"onlinePersons":5333,"totalEffectivePowers":2228656.1,"minerStatus":1,"powerStartupTime":"2025-08-05 08:47:26","powerEndTime":"2025-08-06 08:47:26","batchObtainAmount":1,"averageMiningReward":1,"decimals":8,"halveCondition":4000000000,"totalProduceHkt":null,"curTime":"2025-08-05 10:25:20","numberOfRecommend":0},"msg":"成功"}
