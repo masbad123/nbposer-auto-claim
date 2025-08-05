@@ -1,11 +1,18 @@
-# nbposer-auto-miner
+# NBPoser Auto Claim
 
-Bot auto login dan claim mining dari [nbposer.net](https://nbposer.net), dibuat dengan Node.js.
+Script Node.js untuk login otomatis dan melakukan mining di situs [NBPoser](https://nbposer.net/), dengan token disimpan dan logging setiap 30 menit.
 
-## 🔧 Instalasi
+## 🔧 Fitur
 
-1. Clone repo:
-   ```bash
-   git clone https://github.com/username/nbposer-auto-miner.git
-   cd nbposer-auto-miner
+- Login otomatis menggunakan email/password
+- Simpan token ke `token.txt`
+- Auto-mining setiap 30 menit
+- Log hasil ke `log.txt`
 
+## 🛠️ Instalasi
+
+```bash
+git clone https://github.com/masbad123/nbposer-auto-claim.git
+cd nbposer-auto-claim
+npm install
+# nbposer-auto-claim
